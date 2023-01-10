@@ -150,6 +150,7 @@ namespace GALYA
                         DateTime delTime = DateTime.Parse($"{strInfo[1]} {strInfo[2]}");
                         DataBaseInfo.ClientList.Remove(delTime);
                         DataBaseInfo.FreeEntry.Add(delTime);
+                        Calendar.DeleteEvent(delTime);
                         await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
                         await _botClient.SendTextMessageAsync(ChatId, "Клиент удален");
                     }
@@ -180,8 +181,7 @@ namespace GALYA
                     case "Выход":
 
                         await _botClient.SendTextMessageAsync(ChatId, "Вы вышли!", replyMarkup: new ReplyKeyboardRemove());
-                        _admin.IsFinished = true;
-                        //_admin.IsChecked = false;
+                        _admin.IsFinished = true;                        
                         _tasks.Push(CheckPassword);
                         break;
 

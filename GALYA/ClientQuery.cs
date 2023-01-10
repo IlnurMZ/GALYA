@@ -60,8 +60,8 @@ namespace GALYA
                 case "Unsubcribe":
 
                     await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id, "");
-                    await _botClient.SendTextMessageAsync(ChatId, "Напишите фамилию и время записи \n" +
-                        "Например: Иванов 25.11.2022 15:30");                    
+                    await _botClient.SendTextMessageAsync(ChatId, "Напишите фамилию, имя и время записи \n" +
+                        "Например: Иванов Иван 25.11.2022 15:30");                    
                     taskStack.Push(DeleteEntryAsync);
                     break;
 
@@ -121,16 +121,17 @@ namespace GALYA
         async Task DeleteEntryAsync(Message message)
         {
             string str = message.Text;
-            if (string.IsNullOrWhiteSpace(str))
+            int countWords = str.Split(" ").Length;
+            if (string.IsNullOrWhiteSpace(str) || countWords != 4)
             {
                 await _botClient.SendTextMessageAsync(ChatId, $"Данные введены неверно!");
                 return;
             }
 
             string[] data = str.Split(" ");
-            string surName = data[0];
+            string surName = $"{data[0]} {data[1]}";
             DateTime deleteDate;
-            bool isCorrectDate = DateTime.TryParse(data[1] + " " + data[2], out deleteDate);
+            bool isCorrectDate = DateTime.TryParse(data[2] + " " + data[3], out deleteDate);
 
             if (!isCorrectDate || deleteDate < DateTime.Now)
             {
@@ -141,10 +142,10 @@ namespace GALYA
             if (DataBaseInfo.ClientList.ContainsKey(deleteDate))
             {
                 string[] FIO2 = DataBaseInfo.ClientList[deleteDate][0].Split(" ");
-                if (FIO2[0] == surName)
+                if ($"{FIO2[0]} {FIO2[1]}" == surName)
                 {                    
                     string FIO = $"{FIO2[0]} {FIO2[1]} {FIO2[2]}";
-                    Calendar.DeleteEvent(FIO, deleteDate);                    
+                    Calendar.DeleteEvent(deleteDate);                    
                     DataBaseInfo.ClientList.Remove(deleteDate);
                     DataBaseInfo.FreeEntry.Add(deleteDate);
                     DataBaseInfo.FreeEntry.Sort();

@@ -58,7 +58,7 @@ namespace GALYA
         }
 
         // удаление события
-        public static void DeleteEvent(string name, DateTime startTime)
+        public static void DeleteEvent(DateTime startTime)
         {
             try
             {
