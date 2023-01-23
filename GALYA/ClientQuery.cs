@@ -7,6 +7,7 @@ using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Bot.Types;
 using Telegram.Bot;
 using System.Globalization;
+using GALYA.Keyboard;
 
 namespace GALYA
 {

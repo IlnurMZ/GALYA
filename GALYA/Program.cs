@@ -7,7 +7,7 @@ namespace GALYA
 {
     internal class Program
     {
-        static readonly string _token = "";
+        static readonly string _token = Config.Token;
         static List<Client> _clients = new List<Client>();
         static List<Admin> _admins = new List<Admin>();
         static async Task Main(string[] args)

@@ -11,7 +11,7 @@ namespace GALYA
 {
     internal class Admin
     {
-        internal string Password { get; } = "123"; // временное решение                  
+        internal readonly string Password = "123";                  
         internal bool IsFinished { get; set; } = false;      
         AdminQuery _query;
         public long ChatId { get; set; }

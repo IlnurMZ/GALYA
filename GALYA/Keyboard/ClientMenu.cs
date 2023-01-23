@@ -3,59 +3,29 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 
-namespace GALYA
+namespace GALYA.Keyboard
 {
-    internal class AdminMenu
+    public class ClientMenu
     {
         int _year = DateTime.Now.Year;
         int _month = DateTime.Now.Month;
 
-        internal ReplyKeyboardMarkup StartMenuKeyboard()
+        internal InlineKeyboardMarkup StartMenuKeyboard()
         {
-            ReplyKeyboardMarkup keyboard = new ReplyKeyboardMarkup(
-                 new[]
-                 {
+            InlineKeyboardMarkup keyboard = new(
+                new[]
+                {
                     new[]
                     {
-                        new KeyboardButton("Старые записи"),
-                        new KeyboardButton("Новые записи"),
-                        new KeyboardButton("Удалить запись")
-                    },                                     
-                    new []
-                    {
-                        new KeyboardButton("Добавить время"),
-                        new KeyboardButton("Удалить время"),
-                        new KeyboardButton("Настройки"),
-                    },                   
-                     new []
-                    {
-                        new KeyboardButton("Выход")
-                    },
-                 });
-            return keyboard;
-        }
-
-        internal ReplyKeyboardMarkup AddTimeMenuKeyboard()
-        {
-            ReplyKeyboardMarkup keyboard = new ReplyKeyboardMarkup(
-                 new[]
-                 {
-                    new[]
-                    {                        
-                        new KeyboardButton("Добавить одну запись"),
-                    },
-                    new[]
-                    {
-                        new KeyboardButton("Добавить целый день"),
-                    },
-                    new []
-                    {                        
-                        new KeyboardButton("Назад"),
-                    }                   
-                 });
+                        InlineKeyboardButton.WithCallbackData("Записаться", "MenuDays"),
+                        InlineKeyboardButton.WithCallbackData("Отписаться", "Unsubcribe")
+                    }
+                }
+                );
             return keyboard;
         }
 
@@ -68,11 +38,11 @@ namespace GALYA
             List<DateTime> daysOfMonth;
             bool isNextMonth = false;
             //bool isPreviousMonth = false;
-            int dopMenu = 0; // количество дополнительных пунктов меню (след. и пред. месяц)
+            int dopMenu = 1; // количество дополнительных пунктов меню (след. и пред. месяц), + возврат в главное меню
 
             if (command == "next")
             {
-                _month++; // если содержит запись на следующий месяц
+                _month++;
                 if (_month == 13)
                 {
                     _month = 1;
@@ -81,7 +51,7 @@ namespace GALYA
             }
             else if (command == "previous")
             {
-                _month--; // если содержит запись на предыдущий месяц
+                _month--;
                 if (_month == 0)
                 {
                     _month = 12;
@@ -128,43 +98,49 @@ namespace GALYA
                 }
             }
 
-            if (dopMenu == 1)
+            if (dopMenu == 2)
             {
-                keyboard[heigthMenu - 1] = new InlineKeyboardButton[1];
+                keyboard[heigthMenu - 2] = new InlineKeyboardButton[1];
                 if (isNextMonth)
                 {
-                    keyboard[heigthMenu - 1][0] = InlineKeyboardButton.WithCallbackData(
+                    keyboard[heigthMenu - 2][0] = InlineKeyboardButton.WithCallbackData(
                                             "|  следующий месяц  |",
                                             "MenuDays " + "next");
                 }
-                else //if (isPreviousMonth)
+                else
                 {
-                    keyboard[heigthMenu - 1][0] = InlineKeyboardButton.WithCallbackData(
+                    keyboard[heigthMenu - 2][0] = InlineKeyboardButton.WithCallbackData(
                                         "|  предыдущий месяц  |",
                                         "MenuDays " + "previous");
                 }
             }
-            else if (dopMenu == 2)
+            else if (dopMenu == 3)
             {
-                keyboard[heigthMenu - 2] = new InlineKeyboardButton[1];
-                keyboard[heigthMenu - 2][0] = InlineKeyboardButton.WithCallbackData(
+                keyboard[heigthMenu - 3] = new InlineKeyboardButton[1];
+                keyboard[heigthMenu - 3][0] = InlineKeyboardButton.WithCallbackData(
                                             "|  следующий месяц  |",
                                             "MenuDays " + "next");
 
-                keyboard[heigthMenu - 1] = new InlineKeyboardButton[1];
-                keyboard[heigthMenu - 1][0] = InlineKeyboardButton.WithCallbackData(
+                keyboard[heigthMenu - 2] = new InlineKeyboardButton[1];
+                keyboard[heigthMenu - 2][0] = InlineKeyboardButton.WithCallbackData(
                                         "|  предыдущий месяц  |",
                                         "MenuDays " + "previous");
-            }            
+            }
+
+            keyboard[heigthMenu - 1] = new InlineKeyboardButton[1];
+            keyboard[heigthMenu - 1][0] = InlineKeyboardButton.WithCallbackData(
+                                       "|  Возврат в главное меню  |",
+                                       "BackMainMenu");
+
             return new(keyboard);
         }
 
         internal InlineKeyboardMarkup HoursOfDayKeyboard(string strData)
         {
-            int day = DateTime.Parse(strData).Day; // нужно реализовать проверку парсинга
+            int day = DateTime.Parse(strData).Day;
             var myDataBase = DataBaseInfo.FreeEntry;
             int heigth, width;
-            List<DateTime> time = myDataBase.Where(t => t.Month == _month && t.Day == day && t > DateTime.Now.AddHours(2)).ToList(); // записи по выбранному дню 
+            List<DateTime> time = myDataBase.Where(t => t.Month == _month && t.Day == day && t > DateTime.Now.AddHours(2)).ToList(); //поиск записей по выбранному дню 
 
             if (time.Count % 4 == 0)
                 heigth = time.Count / 4;
@@ -185,33 +161,8 @@ namespace GALYA
             }
             keyboard[heigth] = new InlineKeyboardButton[1];
             keyboard[heigth][0] = InlineKeyboardButton.WithCallbackData("| Вернуться назад |",
-                        "MenuDays Back");            
+                        "MenuDays Back");
             return new(keyboard);
-        }
-
-        internal InlineKeyboardMarkup ClientsForDeleteKeyboard()
-        {
-            var myDataBaseClients = DataBaseInfo.ClientList;
-            var actualClients = myDataBaseClients.Where(d => d.Key > DateTime.Now).ToList();
-
-            if (actualClients.Count == 0)
-            {                
-                return null;
-            }
-
-            int heigth = actualClients.Count;
-            var keyboardButtons = new InlineKeyboardButton[heigth][];
-
-            int count = 0;
-            foreach (var client in actualClients)
-            {
-                keyboardButtons[count] = new InlineKeyboardButton[1];
-                string[] str = client.Value[0].Split(" ");
-                string shortFIO = $"{str[0]} {str[1][0]}.{str[2][0]}.";
-                keyboardButtons[count++][0] = InlineKeyboardButton.WithCallbackData($"{shortFIO} - {client.Key.ToString("dd.MM HH:mm")}",
-                    "DeleteTime " + client.Key.ToString());
-            }
-            return new(keyboardButtons);
         }
 
     }

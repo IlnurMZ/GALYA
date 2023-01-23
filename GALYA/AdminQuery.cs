@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Bot.Types;
 using Telegram.Bot;
+using GALYA.Keyboard;
 
 namespace GALYA
 {
@@ -63,7 +64,6 @@ namespace GALYA
                 await _botClient.SendTextMessageAsync(ChatId, "Такое время уже существует");
             }
         }
-
         async Task AddEntryAsync(Message message)
         {
             DateTime newTime = DateTime.Now;
@@ -94,8 +94,7 @@ namespace GALYA
             if (message.Text == _admin.Password)
             {
                 await _botClient.SendTextMessageAsync(ChatId, "Пароль введен успешно =)");
-                _admin.IsFinished = false;
-                //_admin.IsChecked = true;
+                _admin.IsFinished = false;                
                 ReplyKeyboardMarkup keyboard = _adminMenu.StartMenuKeyboard();
                 await _botClient.SendTextMessageAsync(ChatId, "Вы можете:", replyMarkup: keyboard);
             }
