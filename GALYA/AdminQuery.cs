@@ -10,6 +10,7 @@ using GALYA.Model;
 using GALYA.Keyboard;
 using Npgsql;
 using Dapper;
+using GALYA.Table;
 
 namespace GALYA
 {
@@ -18,7 +19,7 @@ namespace GALYA
         ITelegramBotClient _botClient;
         AdminMenu _adminMenu;
         Admin _admin;               
-        Stack<Func<Message, Task>> _tasks; // определяет способ обработки входных данных
+        Stack<Action<Message>> _tasks; // определяет способ обработки входных данных
         public long ChatId { get; set; }
         public AdminQuery(Admin admin, ITelegramBotClient botClient, Chat chat)
         {
@@ -26,23 +27,16 @@ namespace GALYA
             _botClient = botClient;
             ChatId = chat.Id;
             _adminMenu = new AdminMenu();                    
-            _tasks = new Stack<Func<Message, Task>>();
+            _tasks = new Stack<Action<Message>>();
             _tasks.Push(CheckPassword); // забиваем первоначальное состояние на проверку пароля
         }
 
-        async Task AddFullDayAsync(Message message)
-        {
-            DateTime newTime = DateTime.Now;
-            try
-            {
-                newTime = DateTime.Parse(message.Text);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-                await _botClient.SendTextMessageAsync(ChatId, "Ошибка добавления времени");
-                return;
-            }
+        void AddFullDayAsync(Message message)
+        {            
+            if (!DateTime.TryParse(message.Text, out DateTime newTime))
+            {                
+                throw new ArgumentException("Ошибка добавления времени");
+            }           
 
             List<DateTime> entries = AdminMenu.GetEntries();
 
@@ -53,55 +47,48 @@ namespace GALYA
                 // начинаем день с 8 часов                
                 for (int i = 0; i < 8; i++)
                 {
-                    strValues.Append("(\'" + newTime.ToString() + "\'),");
-                    //DataBaseInfo.FreeEntry.Add(newTime);
+                    strValues.Append("(\'" + newTime.ToString() + "\'),");                    
                     newTime = newTime.AddMinutes(30);
                 }
 
                 newTime = newTime.AddMinutes(60); // 60 мин. отдыха
                 for (int i = 0; i < 7; i++)
                 {
-                    strValues.Append("(\'" + newTime.ToString() + "\'),");
-                    //DataBaseInfo.FreeEntry.Add(newTime);
+                    strValues.Append("(\'" + newTime.ToString() + "\'),");                    
                     newTime = newTime.AddMinutes(30);
                 }
                 strValues.Append("(\'" + newTime.ToString() + "\')");
+
                 try
                 {
-                    Add2(strValues.ToString());
+                    using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+                    {
+                        string sql = $"insert into free_entries (entry) values {strValues}";
+                        connection.Execute(sql);
+                    }                    
                 }
                 catch (Exception e)
                 {
                     Console.WriteLine(e.Message);
-                }
-                //DataBaseInfo.FreeEntry.Sort();
-                await _botClient.SendTextMessageAsync(ChatId, "Добавлено");
+                }                
+                _botClient.SendTextMessageAsync(ChatId, "Добавлено");
             }
             else
             {
-                await _botClient.SendTextMessageAsync(ChatId, "Такое время уже существует");
+                _botClient.SendTextMessageAsync(ChatId, "Такое время уже существует");
             }
         }
+      
+        //public void Add1(DateTime entry)
+        //{
+        //    using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+        //    {
+        //        string sql = $"insert into free_entries (entry) values (@time)";
+        //        connection.Execute(sql, new { time = entry });                
+        //    }
+        //}
 
-        public void Add2(string strValues)
-        {
-            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
-            {
-                string sql = $"insert into free_entries (entry) values {strValues}";
-                connection.Execute(sql);
-            }
-        }
-
-        public void Add1(DateTime entry)
-        {
-            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
-            {
-                string sql = $"insert into free_entries (entry) values (@time)";
-                connection.Execute(sql, new { time = entry });                
-            }
-        }
-
-        async Task AddEntryAsync(Message message)
+        void AddEntryAsync(Message message)
         {
             DateTime newTime = DateTime.Now;
             try
@@ -111,34 +98,37 @@ namespace GALYA
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
-                await _botClient.SendTextMessageAsync(ChatId, "Ошибка добавления времени");
+                _botClient.SendTextMessageAsync(ChatId, "Ошибка добавления времени");
                 return;
             }
 
             try
             {
-                Add1(newTime);
-                await _botClient.SendTextMessageAsync(ChatId, "Добавлено");
+                using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+                {
+                    string sql = $"insert into free_entries (entry) values (@time)";
+                    connection.Execute(sql, new { time = newTime });
+                }                
+                _botClient.SendTextMessageAsync(ChatId, "Добавлено");
             }
             catch (Exception e)
             {
-                await _botClient.SendTextMessageAsync(ChatId, "Ошибка добавления записи. Возможно запись уже существует");
+                _botClient.SendTextMessageAsync(ChatId, "Ошибка добавления записи. Возможно запись уже существует");
                 Console.WriteLine(e.Message);
             }           
         }
-        async Task CheckPassword(Message message)
+        void CheckPassword(Message message)
         {
             if (message.Text == _admin.Password)
             {
-                await _botClient.SendTextMessageAsync(ChatId, "Пароль введен успешно =)");
-                _admin.IsFinished = false;
-                //_admin.IsChecked = true;
+                _botClient.SendTextMessageAsync(ChatId, "Пароль введен успешно =)");
+                _admin.IsFinished = false;                
                 ReplyKeyboardMarkup keyboard = _adminMenu.StartMenuKeyboard();
-                await _botClient.SendTextMessageAsync(ChatId, "Вы можете:", replyMarkup: keyboard);
+                _botClient.SendTextMessageAsync(ChatId, "Вы можете:", replyMarkup: keyboard);
             }
             else
             {
-                await _botClient.SendTextMessageAsync(ChatId, "Пароль введен неверно =(. Попробуйте еще раз");
+                _botClient.SendTextMessageAsync(ChatId, "Пароль введен неверно =(. Попробуйте еще раз");
                 _tasks.Push(CheckPassword);
             }
         }       
@@ -148,56 +138,77 @@ namespace GALYA
             string str = callbackQuery.Data;
             string[] strInfo = str.Split(" ");
             InlineKeyboardMarkup keyboard;
-            switch (strInfo[0])
+            try
             {
-                case "MenuDays":
+                switch (strInfo[0])
+                {
+                    case "MenuDays":
 
-                    keyboard = strInfo.Length == 1 ? _adminMenu.DaysOfMonthMenuKeyboard() : _adminMenu.DaysOfMonthMenuKeyboard(strInfo[1]); // исправил
-                    await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);           
-                    await _botClient.EditMessageTextAsync(ChatId, callbackQuery.Message.MessageId, "Выберете запись", replyMarkup: keyboard);
-                    break;
+                        keyboard = strInfo.Length == 1 ? _adminMenu.DaysOfMonthMenuKeyboard() : _adminMenu.DaysOfMonthMenuKeyboard(strInfo[1]); // исправил
+                        await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
+                        await _botClient.EditMessageTextAsync(ChatId, callbackQuery.Message.MessageId, "Выберете запись", replyMarkup: keyboard);
+                        break;
 
-                case "MenuHours":
-                    
-                    keyboard = _adminMenu.HoursOfDayKeyboard(strInfo[1]);
-                    await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id, $"Вы выбрали {strInfo[1]}.");
-                    await _botClient.EditMessageReplyMarkupAsync(chatId: ChatId, callbackQuery.Message.MessageId, keyboard);
-                    break;
+                    case "MenuHours":
 
-                case "SelectedEntry":
-
-                    try
-                    {
-                        DateTime delTime = DateTime.Parse(strInfo[1] + " " + strInfo[2]);                        
-                        DataBaseInfo.FreeEntry.Remove(delTime);                       
                         keyboard = _adminMenu.HoursOfDayKeyboard(strInfo[1]);
-                        await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
-                        await _botClient.EditMessageTextAsync(ChatId, callbackQuery.Message.MessageId, $"Вы удалили время: {delTime.ToString("g")}", replyMarkup: keyboard);
-                    }
-                    catch(Exception ex)
-                    {
-                        Console.WriteLine(ex.Message);
-                    }                   
-                    break;
+                        await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id, $"Вы выбрали {strInfo[1]}.");
+                        await _botClient.EditMessageReplyMarkupAsync(chatId: ChatId, callbackQuery.Message.MessageId, keyboard);
+                        break;
 
-                case "DeleteTime":
-                    
-                    try
-                    {
-                        DateTime delTime = DateTime.Parse($"{strInfo[1]} {strInfo[2]}");
-                        DataBaseInfo.ClientList.Remove(delTime);
-                        DataBaseInfo.FreeEntry.Add(delTime);
-                        await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
-                        await _botClient.SendTextMessageAsync(ChatId, "Клиент удален");
-                    }
-                    catch (Exception e)
-                    {
-                        await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
-                        await _botClient.SendTextMessageAsync(ChatId, "Ошибка удаления клиента");
-                        Console.WriteLine(e.Message);
-                    }                   
-                    break;
+                    case "SelectedEntry":
+
+                        try
+                        {
+                            DateTime delTime = DateTime.Parse(strInfo[1] + " " + strInfo[2]);
+
+                            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+                            {
+                                string sql = $"delete from free_entries where entry = (@time);";
+                                connection.Execute(sql, new { time = delTime });
+                            }
+                            keyboard = _adminMenu.HoursOfDayKeyboard(strInfo[1]);
+                            await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
+                            await _botClient.EditMessageTextAsync(ChatId, callbackQuery.Message.MessageId, $"Вы удалили время: {delTime.ToString("g")}", replyMarkup: keyboard);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex.Message);
+                        }
+                        break;
+
+                    case "DeleteClient":
+
+                        try
+                        {
+                            DateTime delTime = DateTime.Parse($"{strInfo[1]} {strInfo[2]}");
+
+                            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+                            {
+                                string sql1 = $"delete from client_list where entry = (@time);";
+                                connection.Execute(sql1, new { time = delTime });
+
+                                string sql2 = $"insert into free_entries (entry) values (@time)";
+                                connection.Execute(sql2, new { time = delTime });
+                            }
+                            
+                            await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
+                            await _botClient.SendTextMessageAsync(ChatId, "Клиент удален");
+                        }
+                        catch (Exception e)
+                        {
+                            await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
+                            await _botClient.SendTextMessageAsync(ChatId, "Ошибка удаления клиента");
+                            Console.WriteLine(e.Message);
+                        }
+                        break;
+                }
             }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+           
         }
 
         internal async Task HandleMessage(Message message)
@@ -208,7 +219,7 @@ namespace GALYA
 
             if (_tasks.Count > 0 && command != "Назад")
             {
-                await _tasks.Pop().Invoke(message);
+                _tasks.Pop().Invoke(message);
             }
             else
             {
@@ -231,13 +242,28 @@ namespace GALYA
                     case "Добавить целый день":
 
                         await _botClient.SendTextMessageAsync(ChatId, "Какой день вы хотите добавить? \nПример: 1.1.2024");
-                        _tasks.Push(AddFullDayAsync);
+                        try
+                        {
+                            _tasks.Push(AddFullDayAsync);
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e.Message);
+                        }                        
                         break;
 
                     case "Добавить одну запись":
 
                         await _botClient.SendTextMessageAsync(ChatId, "Какое время вы хотите добавить? \nПример: 12:00 1.1.2024");
-                        _tasks.Push(AddEntryAsync);
+                        try
+                        {
+                            _tasks.Push(AddEntryAsync);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine();
+                        }
+                        
                         break;
 
                     case "Назад":
@@ -253,24 +279,48 @@ namespace GALYA
 
                     case "Новые записи":
 
-                        StringBuilder allEntries2 = new StringBuilder();
-                        var newClientsList = DataBaseInfo.ClientList.Where(x => x.Key > DateTime.Now).ToList();
-                        foreach (var entrie in newClientsList)
+                        StringBuilder allEntries2 = new StringBuilder();                        
+                        List<ClientDB> actualClientsList;
+
+                        var query2 = @" select
+                            firstname, lastname, middlename, phone, entry
+                            from client_list
+                            where entry > @date
+                            order by (entry) asc";
+
+                        using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
                         {
-                            allEntries2.AppendLine($"ФИО: {entrie.Value[0]} - {entrie.Key} \nтел.{entrie.Value[1]} \n");
+                            actualClientsList = connection.Query<ClientDB>(query2, new { date = DateTime.Now }).ToList();
+                        }
+                        
+                        foreach (var client in actualClientsList)
+                        {
+                            allEntries2.AppendLine($"ФИО: {client.LastName} {client.FirstName} {client.MiddleName} - {client.Entry} \nтел.{client.Phone} \n");
                         }
                         await _botClient.SendTextMessageAsync(ChatId, allEntries2.ToString());
                         break;
 
                     case "Старые записи":
 
-                        StringBuilder allEntries = new StringBuilder();
-                        var oldClientsList = DataBaseInfo.ClientList.Where(x => x.Key < DateTime.Now).ToList();
+                        StringBuilder allEntries = new StringBuilder();                        
+                        List<ClientDB> oldClientsList;
+
+                        var query = @" select
+                            firstname, lastname, middlename, phone, entry
+                            from client_list
+                            where entry < @date
+                            order by (entry) asc";
+
+                        using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+                        {
+                            oldClientsList = connection.Query<ClientDB>(query, new { date = DateTime.Now }).ToList();                            
+                        }
+                       
                         if (oldClientsList.Count > 0)
                         {
-                            foreach (var entrie in oldClientsList)
+                            foreach (var client in oldClientsList)
                             {
-                                allEntries.AppendLine($"ФИО: {entrie.Value[0]} - {entrie.Key} \nтел.{entrie.Value[1]} \n");
+                                allEntries.AppendLine($"ФИО: {client.LastName} {client.FirstName} {client.MiddleName} - {client.Entry} \nтел.{client.Phone} \n");
                             }
                         } 
                         else

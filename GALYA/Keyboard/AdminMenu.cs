@@ -15,14 +15,14 @@ namespace GALYA.Keyboard
     {
         int _year = DateTime.Now.Year;
         int _month = DateTime.Now.Month;
-        List<DateTime> _entries_DB;
-        List<ClientDB> _clientList_DB;
+        //List<DateTime> _entries_DB;
+        //List<ClientDB> _clientList_DB;
 
-        public AdminMenu()
-        {
-            _entries_DB = GetEntries();
-            _clientList_DB = GetClientList();
-        }
+        //public AdminMenu()
+        //{
+        //    //_entries_DB = GetEntries();
+        //    //_clientList_DB = GetClientList();
+        //}
         internal ReplyKeyboardMarkup StartMenuKeyboard()
         {
             ReplyKeyboardMarkup keyboard = new ReplyKeyboardMarkup(
@@ -73,7 +73,8 @@ namespace GALYA.Keyboard
         {
             var query = @" select
                 *
-                from free_entries";
+                from free_entries
+                order by (entry) asc";
 
             using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
             {
@@ -100,6 +101,7 @@ namespace GALYA.Keyboard
 
         internal InlineKeyboardMarkup DaysOfMonthMenuKeyboard(string command = "current")
         {
+            var entries_DB = GetEntries();
             DateTime currentTime = DateTime.Now.AddHours(2); // делаем запась не раньше чем на 2 часа            
             int heigthMenu, widthMenu; // количество строк и столбцов пунктов в меню
             List<DateTime> allActualDays;
@@ -126,7 +128,7 @@ namespace GALYA.Keyboard
                 }
             }
 
-            allActualDays = _entries_DB.Where(d => d.Month == _month && d.Year == _year && d > currentTime).ToList(); // Выбираем все записи нужного месяца 
+            allActualDays = entries_DB.Where(d => d.Month == _month && d.Year == _year && d > currentTime).ToList(); // Выбираем все записи нужного месяца 
             daysOfMonth = allActualDays.GroupBy(d => d.Day).Select(g => g.First()).ToList(); // Отбираем только дни               
 
             if (daysOfMonth.Count % 5 == 0)
@@ -137,13 +139,13 @@ namespace GALYA.Keyboard
             int numNextMonth = _month + 1 == 13 ? 1 : _month + 1;
             int numPrevMonth = _month - 1 == 0 ? 12 : _month - 1;
             // Проверка наличия записей на следующий месяц
-            if (_entries_DB.Any(d => d.Month == numNextMonth && d > DateTime.Now))
+            if (entries_DB.Any(d => d.Month == numNextMonth && d > DateTime.Now))
             {
                 dopMenu++;
                 isNextMonth = true;
             }
             // Проверка наличия записей на предыдущий месяц
-            if (_entries_DB.Any(d => d.Month == numPrevMonth && d > DateTime.Now))
+            if (entries_DB.Any(d => d.Month == numPrevMonth && d > DateTime.Now))
             {
                 dopMenu++;
                 //isPreviousMonth = true;
@@ -198,9 +200,10 @@ namespace GALYA.Keyboard
 
         internal InlineKeyboardMarkup HoursOfDayKeyboard(string strData)
         {
+            var entries_DB = GetEntries();
             int day = DateTime.Parse(strData).Day;         
             int heigth, width;
-            List<DateTime> time = _entries_DB.Where(t => t.Month == _month && t.Day == day && t > DateTime.Now.AddHours(2)).ToList();
+            List<DateTime> time = entries_DB.Where(t => t.Month == _month && t.Day == day && t > DateTime.Now.AddHours(2)).ToList();
 
             if (time.Count % 4 == 0)
                 heigth = time.Count / 4;
@@ -227,21 +230,22 @@ namespace GALYA.Keyboard
 
         internal InlineKeyboardMarkup ClientsForDeleteKeyboard()
         {
-            if (_clientList_DB.Count == 0)
+            var clientList_DB = GetClientList();
+            if (clientList_DB.Count == 0)
             {
                 return null;
             }
 
-            int heigth = _clientList_DB.Count;
+            int heigth = clientList_DB.Count;
             var keyboardButtons = new InlineKeyboardButton[heigth][];
 
             int count = 0;
-            foreach (var client in _clientList_DB)
+            foreach (var client in clientList_DB)
             {
                 keyboardButtons[count] = new InlineKeyboardButton[1];               
                 string shortFIO = $"{client.LastName} {client.FirstName[0]}.{client.MiddleName[0]}.";
                 keyboardButtons[count++][0] = InlineKeyboardButton.WithCallbackData($"{shortFIO} - {client.Entry.ToString("dd.MM HH:mm")}",
-                    "DeleteTime " + client.Entry.ToString());
+                    "DeleteClient " + client.Entry.ToString());
             }
             return new(keyboardButtons);
         }

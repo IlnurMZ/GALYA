@@ -14,7 +14,7 @@ namespace GALYA
 
         static Config()
         {
-            List<string> param = new();
+            List<string> param = new(); 
             string path = "Config.cfg";
             try
             {

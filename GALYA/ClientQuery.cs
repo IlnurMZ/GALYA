@@ -11,6 +11,9 @@ using GALYA.Keyboard;
 using GALYA.Model;
 using GALYA.Service;
 using Calendar = GALYA.Service.Calendar;
+using GALYA.Table;
+using Npgsql;
+using Dapper;
 
 namespace GALYA
 {
@@ -20,7 +23,7 @@ namespace GALYA
         ClientMenu _clientMenu;
         Client _client;
         DateTime _myTime;        
-        Stack<Func<Message, Task>> taskStack; // определяет способ обработки входных данных
+        Stack<Action<Message>> taskStack; // определяет способ обработки входных данных
         public long ChatId { get; set; }
 
         public ClientQuery(Client client, ITelegramBotClient botClient, Chat chat)
@@ -29,7 +32,7 @@ namespace GALYA
             _botClient = botClient;
             ChatId = chat.Id;
             _clientMenu = new ClientMenu();            
-            taskStack = new Stack<Func<Message, Task>>();
+            taskStack = new Stack<Action<Message>>();
         }      
 
         public async Task HandleCallbackQuery(CallbackQuery callbackQuery)
@@ -83,7 +86,7 @@ namespace GALYA
 
             if (taskStack.Count> 0)
             {
-                await taskStack.Pop().Invoke(message);
+                taskStack.Pop().Invoke(message);
             } 
             else
             {
@@ -103,32 +106,47 @@ namespace GALYA
             }            
         }
 
-        async Task MakeEntryAsync(Message message)
+        void MakeEntryAsync(Message message)
         {
             string[] str = message.Text.Split(" ");
             if (str.Count() != 4)
             {
-                await _botClient.SendTextMessageAsync(chatId: ChatId, $"Данные введены неверно! Пример: Иванов Иван Иванович 89999999999");
+                _botClient.SendTextMessageAsync(chatId: ChatId, $"Данные введены неверно! Пример: Иванов Иван Иванович 89999999999");
                 return;
             }
-            _client.FIO = $"{str[0]} {str[1]} {str[2]}";
-            _client.PhoneNumber = str[3];            
+
+            ClientDB _client = new ClientDB() { Entry = _myTime, LastName = str[0], FirstName = str[1], MiddleName = str[2], Phone = str[3] };
+            try
+            {
+                using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+                {
+                    string sql = "insert into client_list (entry, firstname,lastname,middlename,phone)" +
+                        "values (@entry,@firstname,@lastname,@middlename,@phone)";
+                    connection.Execute(sql, new { entry = _client.Entry, firstname = _client.FirstName, lastname = _client.LastName, middlename = _client.MiddleName, phone = _client.Phone });
+
+                    string sql1 = $"delete from free_entries where entry = (@time);";
+                    connection.Execute(sql1, new { time = _myTime });
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+
             DateTime start = _myTime;
             DateTime end = _myTime.AddMinutes(30);
 
             Calendar.AddEvent($"{str[0]} {str[1]}", "Описание", start, end);
-            await _botClient.SendTextMessageAsync(chatId: ChatId, $"{_client.FIO}, Вы записались на {_myTime.ToString("g")}. Будем ждать! Спасибо!");
-            DataBaseInfo.ClientList.Add(start, new string[] { _client.FIO, _client.PhoneNumber });
-            DataBaseInfo.FreeEntry.Remove(start);
+            _botClient.SendTextMessageAsync(chatId: ChatId, $"{_client.LastName}, Вы записались на {_myTime.ToString("g")}. Будем ждать! Спасибо!");
         }
 
-        async Task DeleteEntryAsync(Message message)
+        void DeleteEntryAsync(Message message)
         {
             string str = message.Text;
             int countWords = str.Split(" ").Length;
             if (string.IsNullOrWhiteSpace(str) || countWords != 4)
             {
-                await _botClient.SendTextMessageAsync(ChatId, $"Данные введены неверно!");
+                 _botClient.SendTextMessageAsync(ChatId, $"Данные введены неверно!");
                 return;
             }
 
@@ -139,7 +157,7 @@ namespace GALYA
 
             if (!isCorrectDate || deleteDate < DateTime.Now)
             {
-                await _botClient.SendTextMessageAsync(ChatId, $"Актуальные записи не обнаружены");
+                 _botClient.SendTextMessageAsync(ChatId, $"Актуальные записи не обнаружены");
                 return;
             }
 
@@ -153,12 +171,12 @@ namespace GALYA
                     DataBaseInfo.ClientList.Remove(deleteDate);
                     DataBaseInfo.FreeEntry.Add(deleteDate);
                     DataBaseInfo.FreeEntry.Sort();
-                    await _botClient.SendTextMessageAsync(ChatId, $"Запись успешно удалена");                   
+                     _botClient.SendTextMessageAsync(ChatId, $"Запись успешно удалена");                   
                 }
             }
             else
             {
-                await _botClient.SendTextMessageAsync(ChatId, $"Такое время записи отсутствует!");
+                _botClient.SendTextMessageAsync(ChatId, $"Такое время записи отсутствует!");
                 return;
             }
         }

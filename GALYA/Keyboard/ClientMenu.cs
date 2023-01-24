@@ -42,7 +42,8 @@ namespace GALYA.Keyboard
         {
             var query = @" select
                 *
-                from free_entries";
+                from free_entries
+                order by (entry) asc";
 
             using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
             {
