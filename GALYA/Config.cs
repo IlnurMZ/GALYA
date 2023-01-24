@@ -38,7 +38,7 @@ namespace GALYA
                     {
                         throw new Exception("Ошибка чтения конфигурационного файла");
                     }
-                    Console.WriteLine("Данные успешно считаны");
+                    Console.WriteLine("Данные из конфигурационного файла успешно считаны");
                 }
             }
             catch (Exception exception)

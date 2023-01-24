@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Bot.Types;
 using Telegram.Bot;
+using GALYA.Model;
 using GALYA.Keyboard;
+using Npgsql;
+using Dapper;
 
 namespace GALYA
 {
@@ -41,22 +44,37 @@ namespace GALYA
                 return;
             }
 
-            if (!DataBaseInfo.FreeEntry.Any(d => d.Day == newTime.Day))
+            List<DateTime> entries = AdminMenu.GetEntries();
+
+            if (!entries.Any(d => d.Day == newTime.Day))
             {
-                newTime = newTime.AddMinutes(480); // начинаем день с 8 часов                
+                StringBuilder strValues = new StringBuilder();               
+                newTime = newTime.AddMinutes(480);
+                // начинаем день с 8 часов                
                 for (int i = 0; i < 8; i++)
                 {
-                    DataBaseInfo.FreeEntry.Add(newTime);
+                    strValues.Append("(\'" + newTime.ToString() + "\'),");
+                    //DataBaseInfo.FreeEntry.Add(newTime);
                     newTime = newTime.AddMinutes(30);
                 }
 
                 newTime = newTime.AddMinutes(60); // 60 мин. отдыха
-                for (int i = 0; i < 8; i++)
+                for (int i = 0; i < 7; i++)
                 {
-                    DataBaseInfo.FreeEntry.Add(newTime);
+                    strValues.Append("(\'" + newTime.ToString() + "\'),");
+                    //DataBaseInfo.FreeEntry.Add(newTime);
                     newTime = newTime.AddMinutes(30);
                 }
-                DataBaseInfo.FreeEntry.Sort();
+                strValues.Append("(\'" + newTime.ToString() + "\')");
+                try
+                {
+                    Add2(strValues.ToString());
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
+                //DataBaseInfo.FreeEntry.Sort();
                 await _botClient.SendTextMessageAsync(ChatId, "Добавлено");
             }
             else
@@ -64,6 +82,25 @@ namespace GALYA
                 await _botClient.SendTextMessageAsync(ChatId, "Такое время уже существует");
             }
         }
+
+        public void Add2(string strValues)
+        {
+            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+            {
+                string sql = $"insert into free_entries (entry) values {strValues}";
+                connection.Execute(sql);
+            }
+        }
+
+        public void Add1(DateTime entry)
+        {
+            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+            {
+                string sql = $"insert into free_entries (entry) values (@time)";
+                connection.Execute(sql, new { time = entry });                
+            }
+        }
+
         async Task AddEntryAsync(Message message)
         {
             DateTime newTime = DateTime.Now;
@@ -78,23 +115,24 @@ namespace GALYA
                 return;
             }
 
-            if (!DataBaseInfo.FreeEntry.Any(d => d == newTime))
+            try
             {
-                DataBaseInfo.FreeEntry.Add(newTime);
+                Add1(newTime);
                 await _botClient.SendTextMessageAsync(ChatId, "Добавлено");
-                DataBaseInfo.FreeEntry.Sort();
             }
-            else
+            catch (Exception e)
             {
-                await _botClient.SendTextMessageAsync(ChatId, "Такое время уже существует");
-            }
+                await _botClient.SendTextMessageAsync(ChatId, "Ошибка добавления записи. Возможно запись уже существует");
+                Console.WriteLine(e.Message);
+            }           
         }
         async Task CheckPassword(Message message)
         {
             if (message.Text == _admin.Password)
             {
                 await _botClient.SendTextMessageAsync(ChatId, "Пароль введен успешно =)");
-                _admin.IsFinished = false;                
+                _admin.IsFinished = false;
+                //_admin.IsChecked = true;
                 ReplyKeyboardMarkup keyboard = _adminMenu.StartMenuKeyboard();
                 await _botClient.SendTextMessageAsync(ChatId, "Вы можете:", replyMarkup: keyboard);
             }
@@ -149,7 +187,6 @@ namespace GALYA
                         DateTime delTime = DateTime.Parse($"{strInfo[1]} {strInfo[2]}");
                         DataBaseInfo.ClientList.Remove(delTime);
                         DataBaseInfo.FreeEntry.Add(delTime);
-                        Calendar.DeleteEvent(delTime);
                         await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
                         await _botClient.SendTextMessageAsync(ChatId, "Клиент удален");
                     }
@@ -180,7 +217,8 @@ namespace GALYA
                     case "Выход":
 
                         await _botClient.SendTextMessageAsync(ChatId, "Вы вышли!", replyMarkup: new ReplyKeyboardRemove());
-                        _admin.IsFinished = true;                        
+                        _admin.IsFinished = true;
+                        //_admin.IsChecked = false;
                         _tasks.Push(CheckPassword);
                         break;
 

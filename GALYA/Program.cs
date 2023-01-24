@@ -2,6 +2,7 @@
 using Telegram.Bot.Types;
 using Telegram.Bot;
 using System.Net;
+using GALYA.Model;
 
 namespace GALYA
 {
@@ -12,8 +13,8 @@ namespace GALYA
         static List<Admin> _admins = new List<Admin>();
         static async Task Main(string[] args)
         {
-            var botClient = new TelegramBotClient(_token); // для соединения с Телеграммом
-            var me = await botClient.GetMeAsync(); // запрос информации о боте
+            var botClient = new TelegramBotClient(_token);
+            var me = await botClient.GetMeAsync(); 
 
             Console.WriteLine($"My name is {me.Username} {me.Id}");
             

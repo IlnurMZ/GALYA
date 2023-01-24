@@ -9,32 +9,32 @@ using Google.Apis.Calendar.v3;
 using Google.Apis.Services;
 using System.Net;
 
-namespace GALYA
+namespace GALYA.Service
 {
     internal static class Calendar
     {
         const string _calendarId = "7355eb95b4a5dec9a9e70869529639985663b1f42a0e421c927e0ed3f0ee8c05@group.calendar.google.com";
         static string[] _scopes = { CalendarService.Scope.Calendar };
         static string _applicationName = "GALYA_BOT_TELEGRAM";
-        static UserCredential credential;
-        static CalendarService service;
+        static UserCredential _credential;
+        static CalendarService _service;
 
         static Calendar()
         {
             // Create Google Calendar API service.
             using (var stream =
                 new FileStream("credentials.json", FileMode.Open, FileAccess.Read))
-            {                
-                credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
+            {
+                _credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
                     GoogleClientSecrets.FromStream(stream).Secrets,
                     _scopes,
                     "user",
-                    CancellationToken.None).Result;               
+                    CancellationToken.None).Result;
             }
 
-            service = new CalendarService(new BaseClientService.Initializer()
+            _service = new CalendarService(new BaseClientService.Initializer()
             {
-                HttpClientInitializer = credential,
+                HttpClientInitializer = _credential,
                 ApplicationName = _applicationName,
             });
         }
@@ -45,15 +45,15 @@ namespace GALYA
             var newEvent = new Event();
             EventDateTime start = new EventDateTime();
             EventDateTime end = new EventDateTime();
-            start.DateTime = startTime;          
+            start.DateTime = startTime;
             end.DateTime = endTime;
-          
+
             newEvent.Start = start;
             newEvent.End = end;
             newEvent.Summary = title;
             newEvent.Description = descr;
             /*Event recurringEvent = */
-            service.Events.Insert(newEvent, _calendarId).Execute();            
+            _service.Events.Insert(newEvent, _calendarId).Execute();
             Console.WriteLine("Event created: \n", newEvent.HtmlLink);
         }
 
@@ -62,7 +62,7 @@ namespace GALYA
         {
             try
             {
-                EventsResource.ListRequest request = service.Events.List(_calendarId);
+                EventsResource.ListRequest request = _service.Events.List(_calendarId);
                 request.TimeMin = DateTime.Now;
                 request.ShowDeleted = false;
                 request.SingleEvents = true;
@@ -87,10 +87,10 @@ namespace GALYA
                     Console.Write("{0} ({1}) ", eventItem.Summary, when);
 
                     if (eventItem.Start.DateTime == startTime)
-                    {                        
-                        service.Events.Delete(_calendarId, eventItem.Id).Execute();
+                    {
+                        _service.Events.Delete(_calendarId, eventItem.Id).Execute();
                         Console.WriteLine("Event deleted");
-                    }                   
+                    }
                 }
             }
             catch (Exception e)

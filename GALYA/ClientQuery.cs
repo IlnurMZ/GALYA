@@ -8,6 +8,9 @@ using Telegram.Bot.Types;
 using Telegram.Bot;
 using System.Globalization;
 using GALYA.Keyboard;
+using GALYA.Model;
+using GALYA.Service;
+using Calendar = GALYA.Service.Calendar;
 
 namespace GALYA
 {

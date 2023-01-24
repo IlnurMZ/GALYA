@@ -8,12 +8,12 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 
-namespace GALYA
+namespace GALYA.Model
 {
     public class Client
-    {       
+    {
         public string FIO { get; set; }
-        public string PhoneNumber { get; set; }        
+        public string PhoneNumber { get; set; }
         //public bool IsFinished { get; set; }
 
         public long ChatId { get; set; }

@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using Dapper;
+using Npgsql;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -13,6 +16,12 @@ namespace GALYA.Keyboard
     {
         int _year = DateTime.Now.Year;
         int _month = DateTime.Now.Month;
+        List<DateTime> _entries_DB;
+
+        public ClientMenu()
+        {
+            _entries_DB = GetEntries();
+        }
 
         internal InlineKeyboardMarkup StartMenuKeyboard()
         {
@@ -21,23 +30,34 @@ namespace GALYA.Keyboard
                 {
                     new[]
                     {
-                        InlineKeyboardButton.WithCallbackData("Записаться", "MenuDays"),
-                        InlineKeyboardButton.WithCallbackData("Отписаться", "Unsubcribe")
+                        InlineKeyboardButton.WithCallbackData("Записаться на прием", "MenuDays"),
+                        InlineKeyboardButton.WithCallbackData("Отменить запись", "Unsubcribe")
                     }
                 }
                 );
             return keyboard;
         }
 
+        public static List<DateTime> GetEntries()
+        {
+            var query = @" select
+                *
+                from free_entries";
+
+            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+            {
+                var list = connection.Query<DateTime>(query);
+                return list.ToList();
+            }
+        }
+
         internal InlineKeyboardMarkup DaysOfMonthMenuKeyboard(string command = "current")
         {
-            DateTime currentTime = DateTime.Now.AddHours(2); // делаем запась не раньше чем на 2 часа
-            var myDataBase = DataBaseInfo.FreeEntry;
+            DateTime currentTime = DateTime.Now.AddHours(2); // делаем запась не раньше чем на 2 часа            
             int heigthMenu, widthMenu; // количество строк и столбцов пунктов в меню
             List<DateTime> allActualDays;
             List<DateTime> daysOfMonth;
-            bool isNextMonth = false;
-            //bool isPreviousMonth = false;
+            bool isNextMonth = false;            
             int dopMenu = 1; // количество дополнительных пунктов меню (след. и пред. месяц), + возврат в главное меню
 
             if (command == "next")
@@ -59,7 +79,7 @@ namespace GALYA.Keyboard
                 }
             }
 
-            allActualDays = myDataBase.Where(d => d.Month == _month && d.Year == _year && d > currentTime).ToList(); // Выбираем все записи нужного месяца 
+            allActualDays = _entries_DB.Where(d => d.Month == _month && d.Year == _year && d > currentTime).ToList(); // Выбираем все записи нужного месяца 
             daysOfMonth = allActualDays.GroupBy(d => d.Day).Select(g => g.First()).ToList(); // Отбираем только дни               
 
             if (daysOfMonth.Count % 5 == 0)
@@ -70,16 +90,15 @@ namespace GALYA.Keyboard
             int numNextMonth = _month + 1 == 13 ? 1 : _month + 1;
             int numPrevMonth = _month - 1 == 0 ? 12 : _month - 1;
             // Проверка наличия записей на следующий месяц
-            if (myDataBase.Any(d => d.Month == numNextMonth && d > DateTime.Now))
+            if (_entries_DB.Any(d => d.Month == numNextMonth && d > DateTime.Now))
             {
                 dopMenu++;
                 isNextMonth = true;
             }
             // Проверка наличия записей на предыдущий месяц
-            if (myDataBase.Any(d => d.Month == numPrevMonth && d > DateTime.Now))
+            if (_entries_DB.Any(d => d.Month == numPrevMonth && d > DateTime.Now))
             {
-                dopMenu++;
-                //isPreviousMonth = true;
+                dopMenu++;              
             }
             heigthMenu += dopMenu;
             var keyboard = new InlineKeyboardButton[heigthMenu][];
@@ -137,15 +156,15 @@ namespace GALYA.Keyboard
 
         internal InlineKeyboardMarkup HoursOfDayKeyboard(string strData)
         {
-            int day = DateTime.Parse(strData).Day;
-            var myDataBase = DataBaseInfo.FreeEntry;
+            int day = DateTime.Parse(strData).Day;            
             int heigth, width;
-            List<DateTime> time = myDataBase.Where(t => t.Month == _month && t.Day == day && t > DateTime.Now.AddHours(2)).ToList(); //поиск записей по выбранному дню 
+            List<DateTime> time = _entries_DB.Where(t => t.Month == _month && t.Day == day && t > DateTime.Now.AddHours(2)).ToList();
 
             if (time.Count % 4 == 0)
                 heigth = time.Count / 4;
             else
                 heigth = time.Count / 4 + 1;
+
             var keyboard = new InlineKeyboardButton[heigth + 1][];
 
             for (int i = 0; i < heigth; i++)
@@ -159,7 +178,9 @@ namespace GALYA.Keyboard
                         "SelectedEntry " + time[i * 4 + j]);
                 }
             }
+
             keyboard[heigth] = new InlineKeyboardButton[1];
+
             keyboard[heigth][0] = InlineKeyboardButton.WithCallbackData("| Вернуться назад |",
                         "MenuDays Back");
             return new(keyboard);
