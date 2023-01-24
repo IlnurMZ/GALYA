@@ -52,5 +52,8 @@ select * from client_list
 where entry > '2023-01-05 10:30:00'
 order by (entry) asc;
 
+delete from free_entries
+where entry = '2023-02-2 12:00:00';
+
 
 
