@@ -68,8 +68,7 @@ namespace GALYA.Service
                 request.SingleEvents = true;
                 request.MaxResults = 10;
                 request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
-
-                // загружаем все события, удаляем если дата совпадает
+                
                 Events events = request.Execute();
                 Console.WriteLine("Upcoming events:");
                 if (events.Items == null || events.Items.Count == 0)

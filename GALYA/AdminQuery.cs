@@ -11,6 +11,8 @@ using GALYA.Keyboard;
 using Npgsql;
 using Dapper;
 using GALYA.Table;
+using GALYA.Repositories;
+using GALYA.Service;
 
 namespace GALYA
 {
@@ -31,7 +33,7 @@ namespace GALYA
             _tasks.Push(CheckPassword); // забиваем первоначальное состояние на проверку пароля
         }
 
-        void AddFullDayAsync(Message message)
+        void AddFullDay(Message message)
         {            
             if (!DateTime.TryParse(message.Text, out DateTime newTime))
             {                
@@ -61,34 +63,21 @@ namespace GALYA
 
                 try
                 {
-                    using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
-                    {
-                        string sql = $"insert into free_entries (entry) values {strValues}";
-                        connection.Execute(sql);
-                    }                    
+                    EntryRepository.AddFullDayEntries(strValues.ToString());
+                    _botClient.SendTextMessageAsync(ChatId, "Добавлено");                                 
                 }
                 catch (Exception e)
                 {
                     Console.WriteLine(e.Message);
                 }                
-                _botClient.SendTextMessageAsync(ChatId, "Добавлено");
             }
             else
             {
                 _botClient.SendTextMessageAsync(ChatId, "Такое время уже существует");
             }
-        }
-      
-        //public void Add1(DateTime entry)
-        //{
-        //    using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
-        //    {
-        //        string sql = $"insert into free_entries (entry) values (@time)";
-        //        connection.Execute(sql, new { time = entry });                
-        //    }
-        //}
-
-        void AddEntryAsync(Message message)
+        }      
+       
+        void AddEntry(Message message)
         {
             DateTime newTime = DateTime.Now;
             try
@@ -104,11 +93,7 @@ namespace GALYA
 
             try
             {
-                using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
-                {
-                    string sql = $"insert into free_entries (entry) values (@time)";
-                    connection.Execute(sql, new { time = newTime });
-                }                
+                EntryRepository.AddEntry(newTime);              
                 _botClient.SendTextMessageAsync(ChatId, "Добавлено");
             }
             catch (Exception e)
@@ -161,12 +146,7 @@ namespace GALYA
                         try
                         {
                             DateTime delTime = DateTime.Parse(strInfo[1] + " " + strInfo[2]);
-
-                            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
-                            {
-                                string sql = $"delete from free_entries where entry = (@time);";
-                                connection.Execute(sql, new { time = delTime });
-                            }
+                            EntryRepository.RemoveEntry(delTime);                         
                             keyboard = _adminMenu.HoursOfDayKeyboard(strInfo[1]);
                             await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
                             await _botClient.EditMessageTextAsync(ChatId, callbackQuery.Message.MessageId, $"Вы удалили время: {delTime.ToString("g")}", replyMarkup: keyboard);
@@ -182,18 +162,12 @@ namespace GALYA
                         try
                         {
                             DateTime delTime = DateTime.Parse($"{strInfo[1]} {strInfo[2]}");
-
-                            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
-                            {
-                                string sql1 = $"delete from client_list where entry = (@time);";
-                                connection.Execute(sql1, new { time = delTime });
-
-                                string sql2 = $"insert into free_entries (entry) values (@time)";
-                                connection.Execute(sql2, new { time = delTime });
-                            }
-                            
+                            ClientRepository.RemoveClient(delTime);
+                            EntryRepository.AddEntry(delTime);
+                            await _botClient.SendTextMessageAsync(ChatId, "Клиент успешно удален");
+                            Calendar.DeleteEvent(delTime);
                             await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
-                            await _botClient.SendTextMessageAsync(ChatId, "Клиент удален");
+                            await _botClient.SendTextMessageAsync(ChatId, "Добавлено событие в календарь");
                         }
                         catch (Exception e)
                         {
@@ -228,8 +202,7 @@ namespace GALYA
                     case "Выход":
 
                         await _botClient.SendTextMessageAsync(ChatId, "Вы вышли!", replyMarkup: new ReplyKeyboardRemove());
-                        _admin.IsFinished = true;
-                        //_admin.IsChecked = false;
+                        _admin.IsFinished = true;                        
                         _tasks.Push(CheckPassword);
                         break;
 
@@ -244,7 +217,7 @@ namespace GALYA
                         await _botClient.SendTextMessageAsync(ChatId, "Какой день вы хотите добавить? \nПример: 1.1.2024");
                         try
                         {
-                            _tasks.Push(AddFullDayAsync);
+                            _tasks.Push(AddFullDay);
                         }
                         catch (Exception e)
                         {
@@ -257,7 +230,7 @@ namespace GALYA
                         await _botClient.SendTextMessageAsync(ChatId, "Какое время вы хотите добавить? \nПример: 12:00 1.1.2024");
                         try
                         {
-                            _tasks.Push(AddEntryAsync);
+                            _tasks.Push(AddEntry);
                         }
                         catch (Exception ex)
                         {
@@ -279,42 +252,47 @@ namespace GALYA
 
                     case "Новые записи":
 
-                        StringBuilder allEntries2 = new StringBuilder();                        
-                        List<ClientDB> actualClientsList;
-
-                        var query2 = @" select
-                            firstname, lastname, middlename, phone, entry
-                            from client_list
-                            where entry > @date
-                            order by (entry) asc";
-
-                        using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+                        StringBuilder allEntries2 = new StringBuilder();
+                        List<ClientDB> actualClientsList = ClientRepository.GetActualClients();
+                        if (actualClientsList.Count > 0)
                         {
-                            actualClientsList = connection.Query<ClientDB>(query2, new { date = DateTime.Now }).ToList();
+                            foreach (var client in actualClientsList)
+                            {
+                                allEntries2.AppendLine($"ФИО: {client.LastName} {client.FirstName} {client.MiddleName} - {client.Entry} \nтел.{client.Phone} \n");
+                            }
                         }
+                        else
+                        {
+                            await _botClient.SendTextMessageAsync(ChatId, "К вам пока еще никто не записался");
+                        }
+                        //using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+                        //{
+                        //    var query2 = @" select
+                        //    firstname, lastname, middlename, phone, entry
+                        //    from client_list
+                        //    where entry > @date
+                        //    order by (entry) asc";
+                        //    actualClientsList = connection.Query<ClientDB>(query2, new { date = DateTime.Now }).ToList();
+                        //}
                         
-                        foreach (var client in actualClientsList)
-                        {
-                            allEntries2.AppendLine($"ФИО: {client.LastName} {client.FirstName} {client.MiddleName} - {client.Entry} \nтел.{client.Phone} \n");
-                        }
                         await _botClient.SendTextMessageAsync(ChatId, allEntries2.ToString());
                         break;
 
                     case "Старые записи":
 
                         StringBuilder allEntries = new StringBuilder();                        
-                        List<ClientDB> oldClientsList;
+                        List<ClientDB> oldClientsList = ClientRepository.GetOldClients();
 
-                        var query = @" select
-                            firstname, lastname, middlename, phone, entry
-                            from client_list
-                            where entry < @date
-                            order by (entry) asc";
+                        //var query = @" select
+                        //    firstname, lastname, middlename, phone, entry
+                        //    from client_list
+                        //    where entry < @date
+                        //    order by (entry) asc";
 
-                        using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
-                        {
-                            oldClientsList = connection.Query<ClientDB>(query, new { date = DateTime.Now }).ToList();                            
-                        }
+                        //using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+                        //{
+                        //    oldClientsList = connection.Query<ClientDB>(query, new { date = DateTime.Now }).ToList();                            
+                        //}
                        
                         if (oldClientsList.Count > 0)
                         {

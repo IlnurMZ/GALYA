@@ -14,6 +14,7 @@ using Calendar = GALYA.Service.Calendar;
 using GALYA.Table;
 using Npgsql;
 using Dapper;
+using GALYA.Repositories;
 
 namespace GALYA
 {
@@ -23,7 +24,7 @@ namespace GALYA
         ClientMenu _clientMenu;
         Client _client;
         DateTime _myTime;        
-        Stack<Action<Message>> taskStack; // определяет способ обработки входных данных
+        Stack<Action<Message>> taskStack;
         public long ChatId { get; set; }
 
         public ClientQuery(Client client, ITelegramBotClient botClient, Chat chat)
@@ -61,7 +62,7 @@ namespace GALYA
                     _myTime = DateTime.Parse(strInfo[1] + " " + strInfo[2]);                   
                     await _botClient.EditMessageTextAsync(ChatId, callbackQuery.Message.MessageId, $"Вы выбрали {_myTime.ToString("g")}. \n" +
                             $"Напишите полность фамилию, имя, отчество и телефон для связи, например: Иванов Иван Иванович 89999999999");
-                    taskStack.Push(MakeEntryAsync);
+                    taskStack.Push(MakeEntry);
                     break;
 
                 case "Unsubcribe":
@@ -69,7 +70,7 @@ namespace GALYA
                     await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id, "");
                     await _botClient.SendTextMessageAsync(ChatId, "Напишите фамилию, имя и время записи \n" +
                         "Например: Иванов Иван 25.11.2022 15:30");                    
-                    taskStack.Push(DeleteEntryAsync);
+                    taskStack.Push(DeleteEntry);
                     break;
 
                 case "BackMainMenu":
@@ -106,7 +107,7 @@ namespace GALYA
             }            
         }
 
-        void MakeEntryAsync(Message message)
+        void MakeEntry(Message message)
         {
             string[] str = message.Text.Split(" ");
             if (str.Count() != 4)
@@ -118,29 +119,22 @@ namespace GALYA
             ClientDB _client = new ClientDB() { Entry = _myTime, LastName = str[0], FirstName = str[1], MiddleName = str[2], Phone = str[3] };
             try
             {
-                using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
-                {
-                    string sql = "insert into client_list (entry, firstname,lastname,middlename,phone)" +
-                        "values (@entry,@firstname,@lastname,@middlename,@phone)";
-                    connection.Execute(sql, new { entry = _client.Entry, firstname = _client.FirstName, lastname = _client.LastName, middlename = _client.MiddleName, phone = _client.Phone });
-
-                    string sql1 = $"delete from free_entries where entry = (@time);";
-                    connection.Execute(sql1, new { time = _myTime });
-                }
+                ClientRepository.AddClient(_client);
+                EntryRepository.RemoveEntry(_myTime);
+                _botClient.SendTextMessageAsync(ChatId, $"{_client.LastName}, Вы записались на {_myTime.ToString("g")}. Будем ждать! Спасибо!");            
             }
             catch (Exception e)
             {
+                _botClient.SendTextMessageAsync(ChatId, $"Произошла ошибка записи!");
                 Console.WriteLine(e.Message);
             }
 
             DateTime start = _myTime;
             DateTime end = _myTime.AddMinutes(30);
-
-            Calendar.AddEvent($"{str[0]} {str[1]}", "Описание", start, end);
-            _botClient.SendTextMessageAsync(chatId: ChatId, $"{_client.LastName}, Вы записались на {_myTime.ToString("g")}. Будем ждать! Спасибо!");
+            Calendar.AddEvent($"{str[0]} {str[1]}", "Описание", start, end);           
         }
 
-        void DeleteEntryAsync(Message message)
+        void DeleteEntry(Message message)
         {
             string str = message.Text;
             int countWords = str.Split(" ").Length;
@@ -150,35 +144,37 @@ namespace GALYA
                 return;
             }
 
-            string[] data = str.Split(" ");
-            string surName = $"{data[0]} {data[1]}";
+            string[] data = str.Split(" "); 
+            string lastName = data[0];
+            string firstName = data[1];            
             DateTime deleteDate;
-            bool isCorrectDate = DateTime.TryParse(data[2] + " " + data[3], out deleteDate);
+            bool isCorrectDate = DateTime.TryParse(data[2] + " " + data[3], out deleteDate); 
 
             if (!isCorrectDate || deleteDate < DateTime.Now)
             {
                  _botClient.SendTextMessageAsync(ChatId, $"Актуальные записи не обнаружены");
                 return;
             }
-
-            if (DataBaseInfo.ClientList.ContainsKey(deleteDate))
+            
+            try
             {
-                string[] FIO2 = DataBaseInfo.ClientList[deleteDate][0].Split(" ");
-                if ($"{FIO2[0]} {FIO2[1]}" == surName)
+                ClientDB findClient = ClientRepository.GetClient(deleteDate, firstName, lastName);
+                if (findClient == null)
                 {                    
-                    string FIO = $"{FIO2[0]} {FIO2[1]} {FIO2[2]}";
-                    Calendar.DeleteEvent(deleteDate);                    
-                    DataBaseInfo.ClientList.Remove(deleteDate);
-                    DataBaseInfo.FreeEntry.Add(deleteDate);
-                    DataBaseInfo.FreeEntry.Sort();
-                     _botClient.SendTextMessageAsync(ChatId, $"Запись успешно удалена");                   
+                    _botClient.SendTextMessageAsync(ChatId, "Такого клиента не существует");
+                    return;
                 }
+                ClientRepository.RemoveClient(deleteDate, firstName, lastName);
+                EntryRepository.AddEntry(deleteDate);
+                _botClient.SendTextMessageAsync(ChatId, "Вы успешно удалились");
+                Calendar.DeleteEvent(deleteDate);        
             }
-            else
+            catch (Exception e)
             {
-                _botClient.SendTextMessageAsync(ChatId, $"Такое время записи отсутствует!");
-                return;
-            }
+                _botClient.SendTextMessageAsync(ChatId, "Произошла ошибка удаления. Попробуйте еще раз");
+                Console.WriteLine(e.Message);
+            }          
+            
         }
     }
 }
