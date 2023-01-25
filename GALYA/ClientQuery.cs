@@ -146,9 +146,8 @@ namespace GALYA
 
             string[] data = str.Split(" "); 
             string lastName = data[0];
-            string firstName = data[1];            
-            DateTime deleteDate;
-            bool isCorrectDate = DateTime.TryParse(data[2] + " " + data[3], out deleteDate); 
+            string firstName = data[1];    
+            bool isCorrectDate = DateTime.TryParse(data[2] + " " + data[3], out DateTime deleteDate); 
 
             if (!isCorrectDate || deleteDate < DateTime.Now)
             {
