@@ -8,8 +8,7 @@ using System.Threading.Tasks;
 namespace GALYA
 {
     internal static class Config
-    {
-        public static readonly string SqlConnectionString;
+    {       
         public static readonly string Token;
 
         static Config()
@@ -30,8 +29,7 @@ namespace GALYA
                     }
 
                     if (param.Count == 2)
-                    {
-                        SqlConnectionString = param[0];
+                    {                        
                         Token = param[1];
                     }
                     else

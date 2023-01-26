@@ -10,21 +10,28 @@ using Npgsql;
 
 namespace GALYA
 {
-    internal static class ClientRepository
+    internal class ClientRepository
     {
-        public static void AddClient(ClientDB client)
+        public readonly string SqlConnectionString;
+
+        public ClientRepository()
         {
-            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+            SqlConnectionString = "User ID=postgres;Password=270103;Host=localhost;Port=5432;Database=galyabase;";
+        }
+        public void AddClient(ClientDB client)
+        {
+            using (var connection = new NpgsqlConnection(SqlConnectionString))
             {
                 string sql = "insert into client_list (entry, firstname,lastname,middlename,phone)" +
                     "values (@entry,@firstname,@lastname,@middlename,@phone)";
-                connection.Execute(sql, new { entry = client.Entry, firstname = client.FirstName, lastname = client.LastName, middlename = client.MiddleName, phone = client.Phone });
+                connection.Execute(sql, new { entry = client.Entry, firstname = client.FirstName, 
+                    lastname = client.LastName, middlename = client.MiddleName, phone = client.Phone });
             }
         }
-        public static List<ClientDB> GetActualClients()
+        public List<ClientDB> GetActualClients()
         {
             List<ClientDB> actualClientsList;
-            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+            using (var connection = new NpgsqlConnection(SqlConnectionString))
             {
                 var query2 = @" select
                             firstname, lastname, middlename, phone, entry
@@ -36,10 +43,10 @@ namespace GALYA
             return actualClientsList;
         }     
 
-        public static ClientDB GetClient(DateTime entry, string firstName, string lastName)
+        public ClientDB GetClient(DateTime entry, string firstName, string lastName)
         {
             ClientDB client;
-            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+            using (var connection = new NpgsqlConnection(SqlConnectionString))
             {
                 string sql = "select * from client_list where entry = (@entry) and lastname = (@lastname) and firstname = (@firstname)";
                 client = connection.QueryFirstOrDefault<ClientDB>(sql, new { entry = entry, firstName = firstName, lastname = lastName});              
@@ -47,10 +54,10 @@ namespace GALYA
             return client;            
         }       
 
-        public static List<ClientDB> GetOldClients()
+        public List<ClientDB> GetOldClients()
         {
             List<ClientDB> oldClientsList;
-            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+            using (var connection = new NpgsqlConnection(SqlConnectionString))
             {
                 string sql = @" select
                             firstname, lastname, middlename, phone, entry
@@ -62,17 +69,17 @@ namespace GALYA
             return oldClientsList;
         }
 
-        public static void RemoveClient(DateTime time)
+        public void RemoveClient(DateTime delTime)
         {
-            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+            using (var connection = new NpgsqlConnection(SqlConnectionString))
             {
                 string sql = $"delete from client_list where entry = (@time);";
-                connection.Execute(sql, new { time = time});
+                connection.Execute(sql, new { time = delTime});
             }
         }
-        public static void RemoveClient(DateTime entry, string firstName, string lastName)
+        public void RemoveClient(DateTime entry, string firstName, string lastName)
         {
-            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
+            using (var connection = new NpgsqlConnection(SqlConnectionString))
             {
                 string sql = "delete from client_list where entry = (@entry) and lastname = (@lastname) and firstname = (@firstname)";
                 connection.Execute(sql, new { entry = entry, lastname = lastName, firstName = firstName });

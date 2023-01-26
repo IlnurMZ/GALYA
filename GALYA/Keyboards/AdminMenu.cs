@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Dapper;
+using GALYA.Repositories;
 using GALYA.Table;
 using Npgsql;
 using Telegram.Bot.Types;
@@ -13,16 +14,17 @@ namespace GALYA.Keyboard
 {
     internal class AdminMenu
     {
-        int _year = DateTime.Now.Year;
-        int _month = DateTime.Now.Month;
-        //List<DateTime> _entries_DB;
-        //List<ClientDB> _clientList_DB;
-
-        //public AdminMenu()
-        //{
-        //    //_entries_DB = GetEntries();
-        //    //_clientList_DB = GetClientList();
-        //}
+        int _year; 
+        int _month;
+        EntryRepository _entryRepository;
+        ClientRepository _clientRepository;
+        public AdminMenu()
+        {
+            _month = DateTime.Now.Month;
+            _year = DateTime.Now.Year;
+            _entryRepository= new EntryRepository();
+            _clientRepository = new ClientRepository();
+        }
         internal ReplyKeyboardMarkup StartMenuKeyboard()
         {
             ReplyKeyboardMarkup keyboard = new ReplyKeyboardMarkup(
@@ -69,39 +71,9 @@ namespace GALYA.Keyboard
             return keyboard;
         }
 
-        public static List<DateTime> GetEntries()
-        {
-            var query = @" select
-                *
-                from free_entries
-                order by (entry) asc";
-
-            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
-            {
-                var list = connection.Query<DateTime>(query);
-                return list.ToList();
-            }
-        }
-
-        public static List<ClientDB> GetClientList()
-        {
-            DateTime myDate = DateTime.Now.AddHours(2);
-            var query = @" select
-                firstname, lastname, middlename, phone, entry
-                from client_list
-                where entry > @date
-                order by (entry) asc";
-
-            using (var connection = new NpgsqlConnection(Config.SqlConnectionString))
-            {
-                var list = connection.Query<ClientDB>(query, new {date = myDate});
-                return list.ToList();
-            }
-        }
-
         internal InlineKeyboardMarkup DaysOfMonthMenuKeyboard(string command = "current")
         {
-            var entries_DB = GetEntries();
+            var entries_DB = _entryRepository.GetEntries();
             DateTime currentTime = DateTime.Now.AddHours(2); // делаем запась не раньше чем на 2 часа            
             int heigthMenu, widthMenu; // количество строк и столбцов пунктов в меню
             List<DateTime> allActualDays;
@@ -200,7 +172,7 @@ namespace GALYA.Keyboard
 
         internal InlineKeyboardMarkup HoursOfDayKeyboard(string strData)
         {
-            var entries_DB = GetEntries();
+            var entries_DB = _entryRepository.GetEntries();
             int day = DateTime.Parse(strData).Day;         
             int heigth, width;
             List<DateTime> time = entries_DB.Where(t => t.Month == _month && t.Day == day && t > DateTime.Now.AddHours(2)).ToList();
@@ -230,7 +202,7 @@ namespace GALYA.Keyboard
 
         internal InlineKeyboardMarkup ClientsForDeleteKeyboard()
         {
-            var clientList_DB = GetClientList();
+            var clientList_DB = _clientRepository.GetActualClients();
             if (clientList_DB.Count == 0)
             {
                 return null;
