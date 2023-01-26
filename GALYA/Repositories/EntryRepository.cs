@@ -4,14 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Dapper;
-using GALYA.Keyboard;
-using GALYA.Model;
 using Npgsql;
 using Telegram.Bot.Types;
 
-namespace GALYA.Repositories
+namespace GALYA
 {
-    internal class EntryRepository
+    internal class EntryRepository : IEntry
     {
         public readonly string SqlConnectionString;
         public EntryRepository()

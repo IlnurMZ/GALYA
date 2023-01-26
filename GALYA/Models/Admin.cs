@@ -3,15 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using GALYA.Keyboard;
-using GALYA.Repositories;
-using GALYA.Table;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 using Calendar = GALYA.Service.Calendar;
 
-namespace GALYA.Model
+namespace GALYA
 {
     internal class Admin
     {

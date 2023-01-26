@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GALYA.Table
+namespace GALYA
 {
     internal class ClientDB
     {

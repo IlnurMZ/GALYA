@@ -4,13 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Dapper;
-using GALYA.Model;
-using GALYA.Table;
 using Npgsql;
 
 namespace GALYA
 {
-    internal class ClientRepository
+    internal class ClientRepository : IClient
     {
         public readonly string SqlConnectionString;
 

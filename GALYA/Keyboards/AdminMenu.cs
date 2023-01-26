@@ -4,13 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Dapper;
-using GALYA.Repositories;
-using GALYA.Table;
 using Npgsql;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 
-namespace GALYA.Keyboard
+namespace GALYA
 {
     internal class AdminMenu
     {

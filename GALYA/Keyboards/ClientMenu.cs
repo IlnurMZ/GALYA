@@ -5,13 +5,12 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using Dapper;
-using GALYA.Repositories;
 using Npgsql;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 
-namespace GALYA.Keyboard
+namespace GALYA
 {
     public class ClientMenu
     {

@@ -2,7 +2,6 @@
 using Telegram.Bot.Types;
 using Telegram.Bot;
 using System.Net;
-using GALYA.Model;
 
 namespace GALYA
 {
