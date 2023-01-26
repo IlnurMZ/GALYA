@@ -5,16 +5,22 @@ using System.Text;
 using System.Threading.Tasks;
 using Dapper;
 using Npgsql;
+using Telegram.Bot.Types;
+using Calendar = GALYA.Service.Calendar;
 
 namespace GALYA
 {
     internal class ClientRepository : IClient
     {
         public readonly string SqlConnectionString;
+        EntryRepository _entryRepository;
+        Calendar _calendar;
 
         public ClientRepository()
         {
             SqlConnectionString = "User ID=postgres;Password=270103;Host=localhost;Port=5432;Database=galyabase;";
+            _entryRepository = new EntryRepository();
+            _calendar = new Calendar();
         }
         public void AddClient(ClientDB client)
         {
@@ -82,6 +88,34 @@ namespace GALYA
                 string sql = "delete from client_list where entry = (@entry) and lastname = (@lastname) and firstname = (@firstname)";
                 connection.Execute(sql, new { entry = entry, lastname = lastName, firstName = firstName });
             }
+        }
+
+        public void RemoveClient(Message message)
+        {
+            string str = message.Text;
+            int countWords = str.Split(" ").Length;
+            if (string.IsNullOrWhiteSpace(str) || countWords != 4)
+            {
+                throw new Exception("Данные введены неверно");
+            }
+            string[] data = str.Split(" ");
+            string lastName = data[0];
+            string firstName = data[1];
+            bool isCorrectDate = DateTime.TryParse(data[2] + " " + data[3], out DateTime deleteDate);
+
+            if (!isCorrectDate || deleteDate < DateTime.Now)
+            {
+                throw new Exception("Актуальные записи не обнаружены");                
+            }
+
+            ClientDB findClient = GetClient(deleteDate, firstName, lastName);
+            if (findClient == null)
+            {
+                throw new Exception("Такого клиента не существует");                
+            }
+            RemoveClient(deleteDate, firstName, lastName);
+            _entryRepository.AddEntry(deleteDate);
+            _calendar.DeleteEvent(deleteDate);
         }
     }
 }

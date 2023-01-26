@@ -21,6 +21,7 @@ namespace GALYA
         Stack<Action<Message>> taskStack;
         EntryRepository _entryRepository;
         ClientRepository _clientRepository;
+        Calendar _calendar;
         public Client(ITelegramBotClient botClient, Chat chat)
         {            
             _botClient = botClient;
@@ -29,6 +30,7 @@ namespace GALYA
             taskStack = new Stack<Action<Message>>();
             _entryRepository = new EntryRepository();
             _clientRepository = new ClientRepository();
+            _calendar = new Calendar();
         }
 
         public async Task OnAnswerCallbackQueryAsync(CallbackQuery callbackQuery)
@@ -64,8 +66,8 @@ namespace GALYA
 
                     await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id, "");
                     await _botClient.SendTextMessageAsync(ChatId, "Напишите фамилию, имя и время записи \n" +
-                        "Например: Иванов Иван 25.11.2022 15:30");
-                    taskStack.Push(DeleteEntry);
+                        "Например: Иванов Иван 15:30 25.11.2022" );
+                    taskStack.Push(_clientRepository.RemoveClient);
                     break;
 
                 case "BackMainMenu":
@@ -83,6 +85,7 @@ namespace GALYA
             if (taskStack.Count > 0)
             {
                 taskStack.Pop().Invoke(message);
+                await _botClient.SendTextMessageAsync(ChatId, "Успех!");
             }
             else
             {
@@ -126,49 +129,8 @@ namespace GALYA
 
             DateTime start = _entryDate;
             DateTime end = _entryDate.AddMinutes(30);
-            Calendar.AddEvent($"{str[0]} {str[1]}", "Описание", start, end);
+            _calendar.AddEvent($"{str[0]} {str[1]}", "Описание", start, end);
         }
-
-        void DeleteEntry(Message message)
-        {
-            string str = message.Text;
-            int countWords = str.Split(" ").Length;
-            if (string.IsNullOrWhiteSpace(str) || countWords != 4)
-            {
-                _botClient.SendTextMessageAsync(ChatId, $"Данные введены неверно!");
-                return;
-            }
-
-            string[] data = str.Split(" ");
-            string lastName = data[0];
-            string firstName = data[1];
-            bool isCorrectDate = DateTime.TryParse(data[2] + " " + data[3], out DateTime deleteDate);
-
-            if (!isCorrectDate || deleteDate < DateTime.Now)
-            {
-                _botClient.SendTextMessageAsync(ChatId, $"Актуальные записи не обнаружены");
-                return;
-            }
-
-            try
-            {
-                ClientDB findClient = _clientRepository.GetClient(deleteDate, firstName, lastName);
-                if (findClient == null)
-                {
-                    _botClient.SendTextMessageAsync(ChatId, "Такого клиента не существует");
-                    return;
-                }
-                _clientRepository.RemoveClient(deleteDate, firstName, lastName);
-                _entryRepository.AddEntry(deleteDate);
-                _botClient.SendTextMessageAsync(ChatId, "Вы успешно удалились");
-                Calendar.DeleteEvent(deleteDate);
-            }
-            catch (Exception e)
-            {
-                _botClient.SendTextMessageAsync(ChatId, "Произошла ошибка удаления. Попробуйте еще раз");
-                Console.WriteLine(e.Message);
-            }
-
-        }
+        
     }
 }

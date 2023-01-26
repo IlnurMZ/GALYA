@@ -15,8 +15,10 @@ namespace GALYA
         ITelegramBotClient _botClient;
         AdminMenu _adminMenu;        
         Stack<Action<Message>> _tasks; // определяет способ обработки входных данных
+        ReplyKeyboardMarkup keyboard;
         EntryRepository _entryRepository;
         ClientRepository _clientRepository;
+        Calendar _calendar;
         internal readonly string Password = "123";
         internal bool IsFinished { get; set; } = false;        
         public long ChatId { get; set; }
@@ -30,6 +32,7 @@ namespace GALYA
             _tasks.Push(CheckPassword); // забиваем первоначальное состояние на проверку пароля
             _entryRepository = new EntryRepository();
             _clientRepository = new ClientRepository();
+            _calendar = new Calendar();
         }        
 
         void CheckPassword(Message message)
@@ -38,7 +41,7 @@ namespace GALYA
             {
                 _botClient.SendTextMessageAsync(ChatId, "Пароль введен успешно =)");
                 IsFinished = false;
-                ReplyKeyboardMarkup keyboard = _adminMenu.StartMenuKeyboard();
+                keyboard = _adminMenu.StartMenuKeyboard();
                 _botClient.SendTextMessageAsync(ChatId, "Вы можете:", replyMarkup: keyboard);
             }
             else
@@ -95,7 +98,7 @@ namespace GALYA
                             _clientRepository.RemoveClient(delTime);
                             _entryRepository.AddEntry(delTime);
                             await _botClient.SendTextMessageAsync(ChatId, "Клиент успешно удален");
-                            Calendar.DeleteEvent(delTime);
+                            _calendar.DeleteEvent(delTime);
                             await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
                             await _botClient.SendTextMessageAsync(ChatId, "Добавлено событие в календарь");
                         }
@@ -118,12 +121,11 @@ namespace GALYA
         {
 
             string command = message.Text;
-            InlineKeyboardMarkup InKeyboard;
-            ReplyKeyboardMarkup RepKeyboard;
+            InlineKeyboardMarkup InKeyboard;            
 
             if (_tasks.Count > 0 && command != "Назад")
             {
-                _tasks.Pop().Invoke(message);
+                _tasks.Pop().Invoke(message);                
             }
             else
             {
@@ -138,45 +140,26 @@ namespace GALYA
 
                     case "Добавить время":
 
-                        RepKeyboard = _adminMenu.AddTimeMenuKeyboard();
-                        await _botClient.SendTextMessageAsync(ChatId, "Какой время вы хотите добавить? ", replyMarkup: RepKeyboard);
+                        keyboard = _adminMenu.AddTimeMenuKeyboard();
+                        await _botClient.SendTextMessageAsync(ChatId, "Какой время вы хотите добавить? ", replyMarkup: keyboard);
                         break;
 
                     case "Добавить целый день":
 
                         await _botClient.SendTextMessageAsync(ChatId, "Какой день вы хотите добавить? \nПример: 1.1.2024");
-                        try
-                        {
-                            _tasks.Push(_entryRepository.AddFullDayEntries);
-                            await _botClient.SendTextMessageAsync(ChatId, "Вы успешно добавили день!");
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine(e.Message);
-                            await _botClient.SendTextMessageAsync(ChatId, e.Message);
-                        }
+                        _tasks.Push(_entryRepository.AddFullDayEntries);
                         break;
 
                     case "Добавить одну запись":
 
                         await _botClient.SendTextMessageAsync(ChatId, "Какое время вы хотите добавить? \nПример: 12:00 1.1.2024");
-                        try
-                        {
-                            _tasks.Push(_entryRepository.AddEntry);
-                            await _botClient.SendTextMessageAsync(ChatId, "Вы успешно добавили запись!");
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine(e.Message);
-                            await _botClient.SendTextMessageAsync(ChatId, e.Message);
-                        }
-
+                        _tasks.Push(_entryRepository.AddEntry);
                         break;
 
                     case "Назад":
 
-                        RepKeyboard = _adminMenu.StartMenuKeyboard();
-                        await _botClient.SendTextMessageAsync(ChatId, "Вы можете:", replyMarkup: RepKeyboard);
+                        keyboard = _adminMenu.StartMenuKeyboard();
+                        await _botClient.SendTextMessageAsync(ChatId, "Вы можете:", replyMarkup: keyboard);
                         break;
 
                     case "Настройки":

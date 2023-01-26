@@ -11,17 +11,17 @@ using System.Net;
 
 namespace GALYA.Service
 {
-    internal static class Calendar
+    internal class Calendar
     {
         const string _calendarId = "7355eb95b4a5dec9a9e70869529639985663b1f42a0e421c927e0ed3f0ee8c05@group.calendar.google.com";
-        static string[] _scopes = { CalendarService.Scope.Calendar };
-        static string _applicationName = "GALYA_BOT_TELEGRAM";
-        static UserCredential _credential;
-        static CalendarService _service;
+        string[] _scopes = { CalendarService.Scope.Calendar };
+        string _applicationName = "GALYA_BOT_TELEGRAM";
+        UserCredential _credential;
+        CalendarService _service;
 
-        static Calendar()
+        public Calendar()
         {
-            // Create Google Calendar API service.
+            //Create Google Calendar API service.
             using (var stream =
                 new FileStream("credentials.json", FileMode.Open, FileAccess.Read))
             {
@@ -40,7 +40,7 @@ namespace GALYA.Service
         }
 
         // Добавление события
-        public static void AddEvent(string title, string descr, DateTime startTime, DateTime endTime)
+        public void AddEvent(string title, string descr, DateTime startTime, DateTime endTime)
         {
             var newEvent = new Event();
             EventDateTime start = new EventDateTime();
@@ -58,7 +58,7 @@ namespace GALYA.Service
         }
 
         // удаление события
-        public static void DeleteEvent(DateTime startTime)
+        public void DeleteEvent(DateTime startTime)
         {
             try
             {
