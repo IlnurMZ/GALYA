@@ -28,9 +28,9 @@ namespace GALYA
                         }                        
                     }
 
-                    if (param.Count == 2)
+                    if (param.Count == 1)
                     {                        
-                        Token = param[1];
+                        Token = param[0];
                     }
                     else
                     {

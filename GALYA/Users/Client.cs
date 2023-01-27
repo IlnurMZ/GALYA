@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
-using Calendar = GALYA.Service.Calendar;
 
 namespace GALYA
 {
@@ -38,44 +37,52 @@ namespace GALYA
             string str = callbackQuery.Data;
             string[] strInfo = str.Split(" ");
             InlineKeyboardMarkup keyboard;
-            switch (strInfo[0])
+            try
             {
-                case "MenuDays":
+                switch (strInfo[0])
+                {
+                    case "MenuDays":
 
-                    keyboard = strInfo.Length == 1 ? _clientMenu.DaysOfMonthMenuKeyboard() : _clientMenu.DaysOfMonthMenuKeyboard(strInfo[1]);
-                    await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
-                    await _botClient.EditMessageTextAsync(ChatId, callbackQuery.Message.MessageId, "Выберете свободную запись", replyMarkup: keyboard);
-                    break;
+                        keyboard = strInfo.Length == 1 ? _clientMenu.DaysOfMonthMenuKeyboard() : _clientMenu.DaysOfMonthMenuKeyboard(strInfo[1]);
+                        await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
+                        await _botClient.EditMessageTextAsync(ChatId, callbackQuery.Message.MessageId, "Выберете свободную запись", replyMarkup: keyboard);
+                        break;
 
-                case "MenuHours":
+                    case "MenuHours":
 
-                    keyboard = _clientMenu.HoursOfDayKeyboard(strInfo[1]);
-                    await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id, $"Вы выбрали {strInfo[1]}.");
-                    await _botClient.EditMessageReplyMarkupAsync(chatId: ChatId, callbackQuery.Message.MessageId, keyboard);
-                    break;
+                        keyboard = _clientMenu.HoursOfDayKeyboard(strInfo[1]);
+                        await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id, $"Вы выбрали {strInfo[1]}.");
+                        await _botClient.EditMessageReplyMarkupAsync(chatId: ChatId, callbackQuery.Message.MessageId, keyboard);
+                        break;
 
-                case "SelectedEntry":
+                    case "SelectedEntry":
 
-                    _entryDate = DateTime.Parse(strInfo[1] + " " + strInfo[2]);
-                    await _botClient.EditMessageTextAsync(ChatId, callbackQuery.Message.MessageId, $"Вы выбрали {_entryDate.ToString("g")}. \n" +
-                            $"Напишите полность фамилию, имя, отчество и телефон для связи, например: Иванов Иван Иванович 89999999999");
-                    taskStack.Push(MakeEntry);
-                    break;
+                        _entryDate = DateTime.Parse(strInfo[1] + " " + strInfo[2]);
+                        await _botClient.EditMessageTextAsync(ChatId, callbackQuery.Message.MessageId, $"Вы выбрали {_entryDate.ToString("g")}. \n" +
+                                $"Напишите полность фамилию, имя, отчество и телефон для связи, например: Иванов Иван Иванович 89999999999");
+                        taskStack.Push(MakeEntry);
+                        break;
 
-                case "Unsubcribe":
+                    case "Unsubcribe":
 
-                    await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id, "");
-                    await _botClient.SendTextMessageAsync(ChatId, "Напишите фамилию, имя и время записи \n" +
-                        "Например: Иванов Иван 15:30 25.11.2022" );
-                    taskStack.Push(_clientRepository.RemoveClient);
-                    break;
+                        await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id, "");
+                        await _botClient.SendTextMessageAsync(ChatId, "Напишите фамилию, имя и время записи \n" +
+                            "Например: Иванов Иван 15:30 25.11.2022");
+                        taskStack.Push(_clientRepository.RemoveClient);
+                        break;
 
-                case "BackMainMenu":
+                    case "BackMainMenu":
 
-                    keyboard = _clientMenu.StartMenuKeyboard();
-                    await _botClient.EditMessageTextAsync(ChatId, callbackQuery.Message.MessageId, "Вы можете:", replyMarkup: keyboard);
-                    break;
+                        keyboard = _clientMenu.StartMenuKeyboard();
+                        await _botClient.EditMessageTextAsync(ChatId, callbackQuery.Message.MessageId, "Вы можете:", replyMarkup: keyboard);
+                        break;
+                }
             }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+            
         }
 
         public async Task OnAnswerMessageAsync(Message message)
@@ -84,8 +91,15 @@ namespace GALYA
 
             if (taskStack.Count > 0)
             {
-                taskStack.Pop().Invoke(message);
-                await _botClient.SendTextMessageAsync(ChatId, "Успех!");
+                try
+                {
+                    taskStack.Pop().Invoke(message);
+                    await _botClient.SendTextMessageAsync(ChatId, "Успех!");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
             }
             else
             {

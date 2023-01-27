@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
-using Calendar = GALYA.Service.Calendar;
 
 namespace GALYA
 {
@@ -121,113 +120,119 @@ namespace GALYA
         {
 
             string command = message.Text;
-            InlineKeyboardMarkup InKeyboard;            
-
-            if (_tasks.Count > 0 && command != "Назад")
+            InlineKeyboardMarkup InKeyboard;
+            try
             {
-                _tasks.Pop().Invoke(message);                
-            }
-            else
-            {
-                switch (command)
+                if (_tasks.Count > 0 && command != "Назад")
                 {
-                    case "Выход":
-
-                        await _botClient.SendTextMessageAsync(ChatId, "Вы вышли!", replyMarkup: new ReplyKeyboardRemove());
-                        IsFinished = true;
-                        _tasks.Push(CheckPassword);
-                        break;
-
-                    case "Добавить время":
-
-                        keyboard = _adminMenu.AddTimeMenuKeyboard();
-                        await _botClient.SendTextMessageAsync(ChatId, "Какой время вы хотите добавить? ", replyMarkup: keyboard);
-                        break;
-
-                    case "Добавить целый день":
-
-                        await _botClient.SendTextMessageAsync(ChatId, "Какой день вы хотите добавить? \nПример: 1.1.2024");
-                        _tasks.Push(_entryRepository.AddFullDayEntries);
-                        break;
-
-                    case "Добавить одну запись":
-
-                        await _botClient.SendTextMessageAsync(ChatId, "Какое время вы хотите добавить? \nПример: 12:00 1.1.2024");
-                        _tasks.Push(_entryRepository.AddEntry);
-                        break;
-
-                    case "Назад":
-
-                        keyboard = _adminMenu.StartMenuKeyboard();
-                        await _botClient.SendTextMessageAsync(ChatId, "Вы можете:", replyMarkup: keyboard);
-                        break;
-
-                    case "Настройки":
-
-                        await _botClient.SendTextMessageAsync(ChatId, "Этот пункт меню находится в разработке");
-                        break;
-
-                    case "Новые записи":
-
-                        StringBuilder allEntries2 = new StringBuilder();
-                        List<ClientDB> actualClientsList = _clientRepository.GetActualClients();
-                        if (actualClientsList.Count > 0)
-                        {
-                            foreach (var client in actualClientsList)
-                            {
-                                allEntries2.AppendLine($"ФИО: {client.LastName} {client.FirstName} {client.MiddleName} - {client.Entry} \nтел.{client.Phone} \n");
-                            }
-                        }
-                        else
-                        {
-                            await _botClient.SendTextMessageAsync(ChatId, "К вам пока еще никто не записался");
-                        }               
-
-                        await _botClient.SendTextMessageAsync(ChatId, allEntries2.ToString());
-                        break;
-
-                    case "Старые записи":
-
-                        StringBuilder allEntries = new StringBuilder();
-                        List<ClientDB> oldClientsList = _clientRepository.GetOldClients();                   
-
-                        if (oldClientsList.Count > 0)
-                        {
-                            foreach (var client in oldClientsList)
-                            {
-                                allEntries.AppendLine($"ФИО: {client.LastName} {client.FirstName} {client.MiddleName} - {client.Entry} \nтел.{client.Phone} \n");
-                            }
-                        }
-                        else
-                        {
-                            allEntries.AppendLine($"Записи отсутствуют");
-                        }
-                        await _botClient.SendTextMessageAsync(ChatId, allEntries.ToString());
-                        break;
-
-                    case "Удалить запись":
-
-                        InKeyboard = _adminMenu.ClientsForDeleteKeyboard();
-                        if (InKeyboard == null)
-                        {
-                            await _botClient.SendTextMessageAsync(ChatId, "Нет клиентов на удаление");
-                        }
-                        else
-                        {
-                            await _botClient.SendTextMessageAsync(ChatId, "Выберите клиента", replyMarkup: InKeyboard);
-                        }
-                        break;
-
-                    case "Удалить время":
-
-                        InKeyboard = _adminMenu.DaysOfMonthMenuKeyboard();
-                        await _botClient.SendTextMessageAsync(ChatId, "Выберете время ", replyMarkup: InKeyboard);
-                        break;
-
-                    default:
-                        await _botClient.SendTextMessageAsync(ChatId, "Галина не знает такой команды =(");
-                        break;
+                    _tasks.Pop().Invoke(message);
                 }
+                else
+                {
+                    switch (command)
+                    {
+                        case "Выход":
+
+                            await _botClient.SendTextMessageAsync(ChatId, "Вы вышли!", replyMarkup: new ReplyKeyboardRemove());
+                            IsFinished = true;
+                            _tasks.Push(CheckPassword);
+                            break;
+
+                        case "Добавить время":
+
+                            keyboard = _adminMenu.AddTimeMenuKeyboard();
+                            await _botClient.SendTextMessageAsync(ChatId, "Какой время вы хотите добавить? ", replyMarkup: keyboard);
+                            break;
+
+                        case "Добавить целый день":
+
+                            await _botClient.SendTextMessageAsync(ChatId, "Какой день вы хотите добавить? \nПример: 1.1.2024");
+                            _tasks.Push(_entryRepository.AddFullDayEntries);
+                            break;
+
+                        case "Добавить одну запись":
+
+                            await _botClient.SendTextMessageAsync(ChatId, "Какое время вы хотите добавить? \nПример: 12:00 1.1.2024");
+                            _tasks.Push(_entryRepository.AddEntry);
+                            break;
+
+                        case "Назад":
+
+                            keyboard = _adminMenu.StartMenuKeyboard();
+                            await _botClient.SendTextMessageAsync(ChatId, "Вы можете:", replyMarkup: keyboard);
+                            break;
+
+                        case "Настройки":
+
+                            await _botClient.SendTextMessageAsync(ChatId, "Этот пункт меню находится в разработке");
+                            break;
+
+                        case "Новые записи":
+
+                            StringBuilder allEntries2 = new StringBuilder();
+                            List<ClientDB> actualClientsList = _clientRepository.GetActualClients();
+                            if (actualClientsList.Count > 0)
+                            {
+                                foreach (var client in actualClientsList)
+                                {
+                                    allEntries2.AppendLine($"ФИО: {client.LastName} {client.FirstName} {client.MiddleName} - {client.Entry} \nтел.{client.Phone} \n");
+                                }
+                            }
+                            else
+                            {
+                                await _botClient.SendTextMessageAsync(ChatId, "К вам пока еще никто не записался");
+                            }
+
+                            await _botClient.SendTextMessageAsync(ChatId, allEntries2.ToString());
+                            break;
+
+                        case "Старые записи":
+
+                            StringBuilder allEntries = new StringBuilder();
+                            List<ClientDB> oldClientsList = _clientRepository.GetOldClients();
+
+                            if (oldClientsList.Count > 0)
+                            {
+                                foreach (var client in oldClientsList)
+                                {
+                                    allEntries.AppendLine($"ФИО: {client.LastName} {client.FirstName} {client.MiddleName} - {client.Entry} \nтел.{client.Phone} \n");
+                                }
+                            }
+                            else
+                            {
+                                allEntries.AppendLine($"Записи отсутствуют");
+                            }
+                            await _botClient.SendTextMessageAsync(ChatId, allEntries.ToString());
+                            break;
+
+                        case "Удалить запись":
+
+                            InKeyboard = _adminMenu.ClientsForDeleteKeyboard();
+                            if (InKeyboard == null)
+                            {
+                                await _botClient.SendTextMessageAsync(ChatId, "Нет клиентов на удаление");
+                            }
+                            else
+                            {
+                                await _botClient.SendTextMessageAsync(ChatId, "Выберите клиента", replyMarkup: InKeyboard);
+                            }
+                            break;
+
+                        case "Удалить время":
+
+                            InKeyboard = _adminMenu.DaysOfMonthMenuKeyboard();
+                            await _botClient.SendTextMessageAsync(ChatId, "Выберете время ", replyMarkup: InKeyboard);
+                            break;
+
+                        default:
+                            await _botClient.SendTextMessageAsync(ChatId, "Галина не знает такой команды =(");
+                            break;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
             }
         }
 

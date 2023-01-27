@@ -131,7 +131,7 @@ namespace GALYA
 
                 if (client != null) 
                 {
-                    _clients.Remove(client); // для выхода из режима клиента
+                    _clients.Remove(client); 
                 }
                 await botClient.SendTextMessageAsync(message.Chat.Id, $"Введите пароль");
             }
@@ -157,7 +157,7 @@ namespace GALYA
                 _clients.Add(client);
                 if (admin != null)
                 {
-                    _admins.Remove(admin); // для выхода из режима админа
+                    _admins.Remove(admin); 
                 }
 
                 var user = $"{message.From.LastName} {message.From.FirstName}";

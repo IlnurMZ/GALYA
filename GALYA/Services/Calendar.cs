@@ -8,8 +8,9 @@ using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Services;
 using System.Net;
+using Google.Apis.Util.Store;
 
-namespace GALYA.Service
+namespace GALYA
 {
     internal class Calendar
     {
@@ -25,17 +26,26 @@ namespace GALYA.Service
             using (var stream =
                 new FileStream("credentials.json", FileMode.Open, FileAccess.Read))
             {
+                string credPath = "token.json";
                 _credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
                     GoogleClientSecrets.FromStream(stream).Secrets,
                     _scopes,
                     "user",
-                    CancellationToken.None).Result;
+                    CancellationToken.None, new FileDataStore(credPath, true)).Result;
             }
 
             _service = new CalendarService(new BaseClientService.Initializer()
             {
                 HttpClientInitializer = _credential,
                 ApplicationName = _applicationName,
+            });
+
+
+            _service = new CalendarService(new BaseClientService.Initializer()
+            {
+                HttpClientInitializer = _credential,
+                ApplicationName = _applicationName
+                 
             });
         }
 

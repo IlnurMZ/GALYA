@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Dapper;
 using Npgsql;
 using Telegram.Bot.Types;
-using Calendar = GALYA.Service.Calendar;
 
 namespace GALYA
 {
